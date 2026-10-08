@@ -382,3 +382,46 @@ def test_path_from_text_subclass_cache(subclass_first, monkeypatch):
     assert glom({text: 'value'}, Path.from_text(text)) == 'value'
     assert PrefixPath.from_text(text) is PrefixPath.from_text(text)
     assert Path.from_text(text) is Path.from_text(text)
+
+
+@mark.parametrize('star_mode', [False, True])
+def test_path_from_text_unhashable_class(star_mode, monkeypatch):
+    monkeypatch.setattr(Path, '_MAX_CACHE', 10000)
+    monkeypatch.setattr(core, 'PATH_STAR', star_mode)
+
+    class UnhashableMeta(type):
+        __hash__ = None
+
+    class UnhashablePath(Path, metaclass=UnhashableMeta):
+        pass
+
+    result = UnhashablePath.from_text('unhashable-class')
+    assert type(result) is UnhashablePath
+    assert result.values() == ('unhashable-class',)
+    assert UnhashablePath.from_text('unhashable-class') is result
+
+
+@mark.parametrize('star_mode', [False, True])
+def test_path_from_text_equal_classes(star_mode, monkeypatch):
+    monkeypatch.setattr(Path, '_MAX_CACHE', 10000)
+    monkeypatch.setattr(core, 'PATH_STAR', star_mode)
+
+    class EquivalentMeta(type):
+        def __eq__(cls, other):
+            return isinstance(other, EquivalentMeta)
+
+        def __hash__(cls):
+            return 17
+
+    class Left(Path, metaclass=EquivalentMeta):
+        pass
+
+    class Right(Path, metaclass=EquivalentMeta):
+        pass
+
+    left = Left.from_text('equivalent-classes')
+    right = Right.from_text('equivalent-classes')
+    assert type(left) is Left
+    assert type(right) is Right
+    assert Left.from_text('equivalent-classes') is left
+    assert Right.from_text('equivalent-classes') is right
