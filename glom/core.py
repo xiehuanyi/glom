@@ -665,11 +665,12 @@ class Path:
             return cls(*segs)
 
         cache = cls._CACHE[PATH_STAR]  # remove this when PATH_STAR is default
-        if text not in cache:
+        cache_key = (cls, text)
+        if cache_key not in cache:
             if len(cache) > cls._MAX_CACHE:
                 return create()
-            cache[text] = create()
-        return cache[text]
+            cache[cache_key] = create()
+        return cache[cache_key]
 
     def glomit(self, target, scope):
         # The entrypoint for the Path extension

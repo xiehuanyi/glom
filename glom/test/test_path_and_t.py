@@ -1,4 +1,4 @@
-from pytest import raises
+from pytest import mark, raises
 
 from glom import glom, Path, S, T, A, PathAccessError, GlomError, BadSpec, Or, Assign, Delete
 from glom import core
@@ -364,3 +364,21 @@ def test_path_cache():
     pre = Path._MAX_CACHE
     Path._MAX_CACHE = 0
     assert Path.from_text('d.e.f') is not Path.from_text('d.e.f')
+
+
+@mark.parametrize('subclass_first', [False, True])
+def test_path_from_text_subclass_cache(subclass_first, monkeypatch):
+    monkeypatch.setattr(Path, '_MAX_CACHE', 10000)
+    class PrefixPath(Path):
+        def glomit(self, target, scope):
+            return 'custom:' + super().glomit(target, scope)
+
+    text = 'subclass-first' if subclass_first else 'base-first'
+    classes = (PrefixPath, Path) if subclass_first else (Path, PrefixPath)
+    first, second = [cls.from_text(text) for cls in classes]
+    assert type(first) is classes[0]
+    assert type(second) is classes[1]
+    assert glom({text: 'value'}, PrefixPath.from_text(text)) == 'custom:value'
+    assert glom({text: 'value'}, Path.from_text(text)) == 'value'
+    assert PrefixPath.from_text(text) is PrefixPath.from_text(text)
+    assert Path.from_text(text) is Path.from_text(text)
